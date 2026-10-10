@@ -22,6 +22,7 @@
   "homepage": "https://github.com/grikomsn/pi-provider-ampersand-bridge#readme",
   "files": [
     "src",
+    "assets/cover.jpg",
     "CHANGELOG.md",
     "README.md",
     "LICENSE"
@@ -29,7 +30,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/grikomsn/pi-provider-ampersand-bridge/main/assets/cover.jpg"
   },
   "publishConfig": {
     "access": "public",

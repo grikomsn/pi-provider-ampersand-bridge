@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/cover.jpg" alt="Ampersand Bridge provider for Pi" width="800">
+</p>
+
 # pi-provider-ampersand-bridge
 
 [![npm](https://img.shields.io/npm/v/pi-provider-ampersand-bridge)](https://www.npmjs.com/package/pi-provider-ampersand-bridge)
@@ -76,14 +80,15 @@ An authenticated `/models` response replaces this list, so newly released or acc
 ```sh
 npm install
 npm run check
+npm run package
 ```
 
 ## Project
 
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
-- [Release process](RELEASING.md)
 - [Security policy](SECURITY.md)
+- [Release process](RELEASING.md)
 
 ## License
 

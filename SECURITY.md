@@ -10,9 +10,12 @@ Email [security@nibras.co](mailto:security@nibras.co). Do not open a public issu
 
 Include, when applicable:
 
-- A proof of concept or reproduction steps
-- Versions affected and any relevant environment details
-- The impact you consider it to have
+- A concise description and potential impact
+- Affected package, Pi, and Node.js versions
+- Reproduction steps or a proof of concept
+- Relevant logs with API keys, prompts, and personal data removed
+
+You should receive an acknowledgment and a request for any missing details. Please allow time for investigation and a release before public disclosure. If the report is not security-sensitive, use the normal issue templates instead.
 
 ## Scope
 
