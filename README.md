@@ -1,5 +1,6 @@
 # pi-provider-ampersand-bridge
 
+[![npm](https://img.shields.io/npm/v/pi-provider-ampersand-bridge)](https://www.npmjs.com/package/pi-provider-ampersand-bridge)
 [![CI](https://github.com/grikomsn/pi-provider-ampersand-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/grikomsn/pi-provider-ampersand-bridge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
