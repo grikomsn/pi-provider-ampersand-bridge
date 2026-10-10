@@ -2,6 +2,4 @@
 
 ## 0.1.0
 
-### Minor Changes
-
-- Initial unofficial ai& provider for Pi: authenticated `/v1/models` discovery with live metadata (context, output, modalities, per-model reasoning efforts, USD pricing), a bundled fallback catalog, and Pi's built-in OpenAI Chat Completions transport with `reasoning_effort` thinking control.
+- Add an unofficial ai& provider for Pi using the OpenAI-compatible chat completions API: authenticated `/v1/models` discovery with live metadata (context, output, modalities, per-model reasoning efforts, USD pricing), a bundled fallback catalog, and `reasoning_effort` thinking control.
