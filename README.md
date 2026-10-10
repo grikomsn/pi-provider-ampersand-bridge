@@ -80,6 +80,8 @@ npm run check
 ## Project
 
 - [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release process](RELEASING.md)
 - [Security policy](SECURITY.md)
 
 ## License

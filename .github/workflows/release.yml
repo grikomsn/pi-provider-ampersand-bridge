@@ -56,8 +56,8 @@ jobs:
           tag="v${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          if ! npm view pi-provider-poolside version >/dev/null 2>&1; then
-            echo "::warning::Bootstrap pi-provider-poolside on npm, configure its trusted publisher, then rerun this workflow."
+          if ! npm view pi-provider-ampersand-bridge version >/dev/null 2>&1; then
+            echo "::warning::Bootstrap pi-provider-ampersand-bridge on npm, configure its trusted publisher, then rerun this workflow."
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "release=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -67,7 +67,7 @@ jobs:
           else
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
-          if npm view "pi-provider-poolside@${version}" version >/dev/null 2>&1; then
+          if npm view "pi-provider-ampersand-bridge@${version}" version >/dev/null 2>&1; then
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
             echo "publish=true" >> "$GITHUB_OUTPUT"
