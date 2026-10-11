@@ -1,6 +1,6 @@
 {
   "name": "pi-provider-ampersand-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial ai& (api.aiand.com) model provider for Pi with live model discovery",
   "type": "module",
   "license": "MIT",
