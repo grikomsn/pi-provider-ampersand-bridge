@@ -1,4 +1,5 @@
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
+import type { AmpersandEffort } from "./types.ts";
 import { thinkingLevelMapFor } from "./utils.ts";
 
 export const AMPERSAND_BASE_URL = "https://api.aiand.com/v1";
@@ -24,6 +25,8 @@ interface AmpersandFallbackModel {
   readonly maxTokens: number;
   /** Accepted `reasoning_effort` values, empty when the model has no reasoning control. */
   readonly efforts: readonly string[];
+  /** Effort the ai& catalog nominates as this model's default (`reasoning_effort_default`). */
+  readonly default: AmpersandEffort;
   readonly cost: ProviderModelConfig["cost"];
 }
 
@@ -42,6 +45,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 384_000,
     efforts: ["none", "high", "max"],
+    default: "high",
     cost: { input: 0.3, output: 0.6, cacheRead: 0.02, cacheWrite: 0 },
   },
   {
@@ -52,6 +56,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 131_072,
     efforts: ["low", "high", "max"],
+    default: "max",
     cost: { input: 1, output: 4, cacheRead: 0.3, cacheWrite: 0 },
   },
   {
@@ -62,6 +67,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_550,
     maxTokens: 131_072,
     efforts: ["low", "high", "max"],
+    default: "max",
     cost: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0 },
   },
   {
@@ -72,6 +78,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 262_144,
     maxTokens: 32_768,
     efforts: ["none", "low", "medium", "xhigh"],
+    default: "xhigh",
     cost: { input: 0.4, output: 3, cacheRead: 0.2, cacheWrite: 0 },
   },
   {
@@ -82,6 +89,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 131_072,
     efforts: ["low", "high", "max"],
+    default: "max",
     cost: { input: 3, output: 12.5, cacheRead: 0.5, cacheWrite: 0 },
   },
   {
@@ -92,6 +100,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 131_072,
     efforts: ["none", "high", "max"],
+    default: "max",
     cost: { input: 1, output: 4, cacheRead: 0.3, cacheWrite: 0 },
   },
   {
@@ -102,6 +111,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 262_144,
     maxTokens: 32_768,
     efforts: ["none", "high"],
+    default: "none",
     cost: { input: 0.2, output: 0.5, cacheRead: 0.05, cacheWrite: 0 },
   },
   {
@@ -112,6 +122,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 262_144,
     maxTokens: 262_144,
     efforts: ["high"],
+    default: "high",
     cost: { input: 0.75, output: 3.5, cacheRead: 0.2, cacheWrite: 0 },
   },
   {
@@ -122,6 +133,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 262_144,
     maxTokens: 262_144,
     efforts: ["none", "high"],
+    default: "high",
     cost: { input: 0.5, output: 2, cacheRead: 0.2, cacheWrite: 0 },
   },
   {
@@ -132,6 +144,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 384_000,
     efforts: ["none", "high", "max"],
+    default: "high",
     cost: { input: 0.15, output: 0.25, cacheRead: 0.08, cacheWrite: 0 },
   },
   {
@@ -142,6 +155,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 262_144,
     maxTokens: 65_536,
     efforts: ["none", "high"],
+    default: "high",
     cost: { input: 0.32, output: 3.2, cacheRead: 0.2, cacheWrite: 0 },
   },
   {
@@ -152,6 +166,7 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 1_048_576,
     maxTokens: 384_000,
     efforts: ["none", "high", "max"],
+    default: "high",
     cost: { input: 1, output: 2.5, cacheRead: 0.25, cacheWrite: 0 },
   },
   {
@@ -162,9 +177,15 @@ const FALLBACK_CATALOG: readonly AmpersandFallbackModel[] = [
     contextWindow: 131_072,
     maxTokens: 32_768,
     efforts: ["low", "medium", "high"],
+    default: "medium",
     cost: { input: 0.15, output: 0.6, cacheRead: 0.08, cacheWrite: 0 },
   },
 ];
+
+/** Bundled per-model default efforts, keyed by canonical model id. */
+export const FALLBACK_DEFAULT_EFFORTS: Readonly<Record<string, AmpersandEffort>> = Object.fromEntries(
+  FALLBACK_CATALOG.map((model) => [model.id, model.default]),
+);
 
 /** Fallback model metadata mirrors the live ai& catalog shape. */
 export const FALLBACK_MODELS: ChatModelConfig[] = FALLBACK_CATALOG.map((model) => ({
@@ -175,6 +196,8 @@ export const FALLBACK_MODELS: ChatModelConfig[] = FALLBACK_CATALOG.map((model) =
   cost: { ...model.cost },
   contextWindow: model.contextWindow,
   maxTokens: model.maxTokens,
-  thinkingLevelMap: model.efforts.length ? thinkingLevelMapFor(model.efforts) : undefined,
+  thinkingLevelMap: model.efforts.length
+    ? thinkingLevelMapFor(model.efforts, model.default)
+    : undefined,
   compat: AMPERSAND_COMPAT,
 }));

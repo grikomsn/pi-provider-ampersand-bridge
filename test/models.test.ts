@@ -43,17 +43,18 @@ test("fallback metadata matches the current ai& catalog", () => {
   assert.deepEqual(flash?.input, ["text", "image"]);
   assert.deepEqual(flash?.cost, { input: 0.3, output: 0.6, cacheRead: 0.02, cacheWrite: 0 });
   assert.deepEqual(flash?.thinkingLevelMap, {
-    off: "none", minimal: null, low: null, medium: null, high: "high", xhigh: null, max: "max",
+    off: "none", minimal: null, low: null, medium: "high", high: "high", xhigh: null, max: "max",
   });
 
   // GLM 5.3 has no disable switch: "off" is unsupported, max maps to itself.
+  // Its ai& default effort is "max", which pi's default "medium" level steers to.
   assert.deepEqual(models.get("zai-org/glm-5.3")?.thinkingLevelMap, {
-    off: null, minimal: null, low: "low", medium: null, high: "high", xhigh: null, max: "max",
+    off: null, minimal: null, low: "low", medium: "max", high: "high", xhigh: null, max: "max",
   });
 
   // Kimi K2.7 Code only accepts "high": max falls back to the highest effort.
   assert.deepEqual(models.get("moonshotai/kimi-k2.7-code")?.thinkingLevelMap, {
-    off: null, minimal: null, low: null, medium: null, high: "high", xhigh: null, max: "high",
+    off: null, minimal: null, low: null, medium: "high", high: "high", xhigh: null, max: "high",
   });
 
   const compat = models.get("zai-org/glm-5.3")?.compat as Record<string, unknown>;
@@ -80,7 +81,7 @@ test("parses every model and uses live metadata", () => {
     contextWindow: 1_048_576,
     maxTokens: 384_000,
     thinkingLevelMap: {
-      off: "none", minimal: null, low: null, medium: null, high: "high", xhigh: null, max: "max",
+      off: "none", minimal: null, low: null, medium: "high", high: "high", xhigh: null, max: "max",
     },
     compat: AMPERSAND_COMPAT,
   });
@@ -192,4 +193,162 @@ test("refresh falls back when no resolved credential is available", async () => 
     async publish() { return true; },
   } as never);
   assert.equal(fallback, FALLBACK_MODELS);
+});
+
+test("accepts the live field aliases the sister bridge accepts", () => {
+  const [aliased] = parseModelsResponse({
+    data: [{
+      id: "future-labs/aliased",
+      context_length: 500_000,
+      max_completion_tokens: 16_384,
+      pricing: { prompt: "1.5", completion: "6", cache_prompt: "0.25" },
+      capabilities: ["reasoning"],
+      reasoning_efforts: ["low", "high"],
+    }],
+  });
+  assert.equal(aliased?.contextWindow, 500_000);
+  assert.equal(aliased?.maxTokens, 16_384);
+  assert.deepEqual(aliased?.cost, { input: 1.5, output: 6, cacheRead: 0.25, cacheWrite: 0 });
+
+  const [flat] = parseModelsResponse({
+    data: [{
+      id: "future-labs/flat",
+      max_context_tokens: 128_000,
+      max_model_len: undefined,
+      input_per_1m: "0.4",
+      output_per_1m: "1.2",
+      cached_input_per_1m: "0.1",
+    }],
+  });
+  assert.equal(flat?.contextWindow, 128_000);
+  assert.deepEqual(flat?.cost, { input: 0.4, output: 1.2, cacheRead: 0.1, cacheWrite: 0 });
+});
+
+test("detects image input from architecture modalities and vision names", () => {
+  const [fromArchitecture] = parseModelsResponse({
+    data: [{ id: "future-labs/multimodal", architecture: { input_modalities: ["text", "image"] } }],
+  });
+  assert.deepEqual(fromArchitecture?.input, ["text", "image"]);
+
+  const [fromName] = parseModelsResponse({ data: [{ id: "future-labs/qwen-vision" }] });
+  assert.deepEqual(fromName?.input, ["text", "image"]);
+
+  const [explicitTextOnly] = parseModelsResponse({
+    data: [{ id: "future-labs/vision-named", input_modalities: ["text"] }],
+  });
+  assert.deepEqual(explicitTextOnly?.input, ["text"]);
+});
+
+test("steers pi's default medium level to the catalog default effort", () => {
+  // Live default applies when it is in the effort list.
+  const [liveDefault] = parseModelsResponse({
+    data: [{
+      id: "future-labs/reasoner",
+      capabilities: ["reasoning"],
+      reasoning_efforts: ["low", "high", "max"],
+      reasoning_effort_default: "max",
+    }],
+  });
+  assert.equal(liveDefault?.thinkingLevelMap?.medium, "max");
+
+  // Invalid live default is ignored and the last listed effort is used.
+  const [badDefault] = parseModelsResponse({
+    data: [{
+      id: "future-labs/reasoner-2",
+      capabilities: ["reasoning"],
+      reasoning_efforts: ["none", "high"],
+      reasoning_effort_default: "turbo",
+    }],
+  });
+  assert.equal(badDefault?.thinkingLevelMap?.medium, "high");
+
+  // Missing live default falls back to the bundled per-model default.
+  const [fallbackDefault] = parseModelsResponse({
+    data: [{ id: "moonshotai/kimi-k3", reasoning_efforts: ["low", "high", "max"] }],
+  });
+  assert.equal(fallbackDefault?.thinkingLevelMap?.medium, "max");
+
+  // Models that accept "medium" natively keep it.
+  const [nativeMedium] = parseModelsResponse({
+    data: [{
+      id: "future-labs/native",
+      capabilities: ["reasoning"],
+      reasoning_efforts: ["low", "medium", "high"],
+      reasoning_effort_default: "high",
+    }],
+  });
+  assert.equal(nativeMedium?.thinkingLevelMap?.medium, "medium");
+});
+
+test("drops non-chat listings and canonicalizes ids", () => {
+  const models = parseModelsResponse({
+    data: [
+      { id: "future-labs/text-embedding" },
+      { id: "vendor/rerank-v2" },
+      { id: "vendor/image-gen" },
+      { id: "vendor/audio-tiny" },
+      { id: "  DeepSeek-AI/DeepSeek-V4.1-Flash  ", context_window: 999 },
+      { id: "deepseek-ai/deepseek-v4.1-flash" },
+    ],
+  });
+  assert.deepEqual(models.map((model) => model.id), [
+    "deepseek-ai/deepseek-v4.1-flash",
+    "deepseek-ai/deepseek-v4.1-flash",
+  ]);
+  // Mixed-case ids canonicalize onto the bundled fallback row.
+  assert.equal(models[0]?.contextWindow, 999);
+  assert.equal(models[0]?.name, "DeepSeek V4.1 Flash");
+});
+
+test("retries transient /models failures and sends problem+json accept", async () => {
+  const originalFetch = globalThis.fetch;
+  const accept: string[] = [];
+  let calls = 0;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    calls += 1;
+    accept.push(String((init?.headers as Record<string, string>).Accept));
+    if (calls < 3) return new Response("overloaded", { status: 503 });
+    return new Response(JSON.stringify({ data: [{ id: "deepseek-ai/deepseek-v4-new" }] }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const models = await fetchModels("secret");
+    assert.equal(calls, 3);
+    assert.equal(accept[0], "application/json, application/problem+json");
+    assert.equal(models[0]?.id, "deepseek-ai/deepseek-v4-new");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("gives up after three attempts on persistent transient failures", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("rate limited", { status: 429, headers: { "retry-after": "0" } });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(fetchModels("secret"), /HTTP 429/);
+    assert.equal(calls, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("does not retry non-transient failures", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("denied", { status: 401 });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(fetchModels("secret"), /HTTP 401/);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

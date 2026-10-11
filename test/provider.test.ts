@@ -10,11 +10,15 @@ import ampersandProvider, {
 
 test("registers an authenticated OpenAI-compatible provider", () => {
   let registration: { name: string; config: ProviderConfig } | undefined;
+  let command: { name: string; description?: string } | undefined;
   const pi = {
     registerProvider(name: string, config: ProviderConfig) {
       registration = { name, config };
     },
-  } as ExtensionAPI;
+    registerCommand(name: string, options: { description?: string }) {
+      command = { name, description: options.description };
+    },
+  } as unknown as ExtensionAPI;
 
   ampersandProvider(pi);
   assert.equal(registration?.name, "ampersand");
@@ -25,6 +29,8 @@ test("registers an authenticated OpenAI-compatible provider", () => {
   assert.equal(registration?.config.authHeader, true);
   assert.equal(registration?.config.models?.length, 13);
   assert.equal(typeof registration?.config.refreshModels, "function");
+  assert.equal(command?.name, "ampersand-balance");
+  assert.equal(typeof command?.description, "string");
 });
 
 test("exports the same catalog surface as the constants module", () => {

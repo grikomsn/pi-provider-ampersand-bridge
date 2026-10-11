@@ -53,6 +53,8 @@ Use Pi's thinking-level control as usual. Each model advertises its own accepted
 - `qwen/qwen3.8-27b` runs up to `xhigh`; `openai/gpt-oss-120b` caps at `high`
 - `moonshotai/kimi-k2.7-code` always reasons at `high`
 
+Models that do not accept `medium` natively map Pi's default `medium` level to the catalog's `reasoning_effort_default` (for example Kimi K3 defaults to `max`, Gemma 4 to `none`), so a fresh session starts at the effort ai& nominates.
+
 ## Model metadata
 
 The fallback catalog mirrors the live `GET /v1/models` response (USD per million tokens):
@@ -74,6 +76,19 @@ The fallback catalog mirrors the live `GET /v1/models` response (USD per million
 | `openai/gpt-oss-120b` | 131,072 | 32,768 | text | low, medium, high |
 
 An authenticated `/models` response replaces this list, so newly released or account-specific models appear without an extension release.
+
+## Account balance
+
+Run `/ampersand-balance` in a session to fetch `GET /billing/balance` for your configured key. The command reports remaining credits (USD or JPY) or, for pay-as-you-go accounts, the number of requests remaining in today's allowance.
+
+## Catalog hardening
+
+The live discovery pipeline mirrors the companion VS Code bridge so both projects see the same catalog:
+
+- **Default reasoning effort**: the catalog's `reasoning_effort_default` (or the bundled per-model default) steers Pi's default `medium` thinking level whenever a model does not accept `medium` natively, so a fresh session lands on the effort ai& nominates.
+- **Chat models only**: listings for embedders, rerankers, and image/audio/video models are filtered out, and model ids are canonicalized (trimmed, lowercased) before matching the bundled catalog.
+- **Field aliases**: `context_length` / `max_context_tokens` / `max_model_len` are accepted alongside `context_window`, `max_completion_tokens` alongside `max_output_tokens`, and pricing is read from a nested `pricing` object (`prompt` / `completion` / `cache_prompt`) or the flat per-million strings. Image input falls back to `architecture.input_modalities` and `vision`-style names when no modality data is present.
+- **Transient-failure retry**: `/models` and `/billing/balance` requests retry 429/502/503/504 responses and transient network errors up to three attempts with capped exponential backoff, honoring `Retry-After` (≤5s).
 
 ## Development
 
