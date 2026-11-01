@@ -22,46 +22,83 @@ export function retryDelayMs(attempt: number, retryAfter?: string | null): numbe
   if (retryAfter) {
     const seconds = Number(retryAfter);
     if (Number.isFinite(seconds) && seconds >= 0) return Math.min(5_000, seconds * 1_000);
-    const date = Date.parse(retryAfter);
+    // Only an HTTP-date (which always names a weekday/month) is a date; V8's
+    // lenient parser would otherwise read values like "-3" as a past year.
+    const date = /[a-z]/i.test(retryAfter) ? Date.parse(retryAfter) : Number.NaN;
     if (Number.isFinite(date)) return Math.max(0, Math.min(5_000, date - Date.now()));
   }
   return Math.min(2_000, 250 * 2 ** Math.max(0, attempt));
 }
 
-function networkCause(error: Error): string {
+function networkCause(error: Error, depth = 0): string {
   const cause = (error as Error & { cause?: unknown }).cause;
-  return cause instanceof Error ? `${cause.name}: ${cause.message} ${networkCause(cause)}` : "";
+  if (depth >= 8) return "";
+  if (cause instanceof Error) return `${cause.name}: ${cause.message} ${networkCause(cause, depth + 1)}`;
+  // undici and some proxies report the low-level failure as a bare string cause.
+  return typeof cause === "string" ? cause : "";
 }
 
 export function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error) || error.name === "AbortError") return false;
+  const detail = `${error.name}: ${error.message} ${networkCause(error)}`;
+  // `redirect: "error"` surfaces as `fetch failed` caused by "unexpected
+  // redirect": a deliberate refusal, not a transient fault, so never retry it.
+  if (/unexpected redirect/i.test(detail)) return false;
   return /fetch failed|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET|socket hang up/i
-    .test(`${error.name}: ${error.message} ${networkCause(error)}`);
+    .test(detail);
 }
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
+/** Backoff that ends early (and rejects) once `signal` aborts, without leaking listeners. */
+function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
       clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
       resolve();
-    }, { once: true });
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 
-/** At most three attempts; transient statuses and network errors are retried. */
+/**
+ * Release a response that will not be read so its connection returns to the
+ * pool. Fire-and-forget: a stream whose cancel never settles must not stall the
+ * retry, and a locked or errored body has nothing left to release.
+ */
+function discardBody(response: Response): void {
+  try {
+    response.body?.cancel().catch(() => {});
+  } catch {
+    // Defensive: cancel() reports failures through its promise, never by throwing.
+  }
+}
+
+/**
+ * At most three attempts; transient statuses and network errors are retried.
+ * Backoff stops as soon as the request's own signal (`init.signal`, which
+ * includes any timeout) or `signal` aborts.
+ */
 export async function fetchWithRetry(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
+  const abortSignal = init.signal && signal ? AbortSignal.any([init.signal, signal]) : (init.signal ?? signal);
   for (let attempt = 0; ; attempt += 1) {
     let response: Response;
     try {
       response = await fetch(url, init);
     } catch (error) {
       if (attempt >= 2 || !isTransientNetworkError(error)) throw error;
-      await sleep(retryDelayMs(attempt), signal);
+      await sleep(retryDelayMs(attempt), abortSignal);
       continue;
     }
     if (attempt >= 2 || !TRANSIENT_STATUS_CODES.has(response.status)) return response;
-    await sleep(retryDelayMs(attempt, response.headers.get("retry-after")), signal);
+    discardBody(response);
+    await sleep(retryDelayMs(attempt, response.headers.get("retry-after")), abortSignal);
   }
 }
 
@@ -188,6 +225,8 @@ export async function fetchModels(apiKey: string, signal?: AbortSignal): Promise
         Accept: "application/json, application/problem+json",
         Authorization: `Bearer ${apiKey}`,
       },
+      // Never follow a redirect with the bearer key attached.
+      redirect: "error",
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     },
     signal,

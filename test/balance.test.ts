@@ -35,6 +35,7 @@ test("fetches /billing/balance outside the versioned API", async () => {
     assert.equal(request?.input, AMPERSAND_BALANCE_URL);
     assert.equal(AMPERSAND_BALANCE_URL, "https://api.aiand.com/billing/balance");
     assert.equal((request?.init?.headers as Record<string, string>).Authorization, "Bearer secret");
+    assert.equal(request?.init?.redirect, "error");
     assert.equal(formatBalance(balance), "$42.00 USD credits");
   } finally {
     globalThis.fetch = originalFetch;
@@ -56,4 +57,10 @@ test("retry delays honor Retry-After and cap backoff", () => {
   assert.equal(retryDelayMs(0, "60"), 5_000);
   const until = new Date(Date.now() + 60_000).toUTCString();
   assert.equal(retryDelayMs(0, until), 5_000);
+  // Negative and junk values fall back to exponential backoff, never a date.
+  assert.equal(retryDelayMs(0, "-3"), 250);
+  assert.equal(retryDelayMs(1, "-3"), 500);
+  assert.equal(retryDelayMs(2, "2001"), 5_000); // numeric seconds, capped
+  assert.equal(retryDelayMs(1, "soon"), 500);
+  assert.equal(retryDelayMs(0, new Date(Date.now() - 60_000).toUTCString()), 0);
 });

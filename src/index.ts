@@ -2,15 +2,24 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { fetchBalance, formatBalance } from "./balance.ts";
 import { AMPERSAND_BASE_URL, FALLBACK_MODELS } from "./constants.ts";
 import { refreshModels } from "./models.ts";
+import { readPersistedProviderModels } from "./store.ts";
+
+export const PROVIDER_ID = "ampersand";
 
 export default function ampersandProvider(pi: ExtensionAPI): void {
-  pi.registerProvider("ampersand", {
+  // Register the catalog pi persisted on the last successful refresh, so a
+  // saved default on a model only the live catalog lists resolves from the
+  // moment the provider exists rather than only once the first cache-only
+  // refresh has published. This is exactly what that refresh would return.
+  // ai& sets a provider-level baseUrl, so rows without their own are fine.
+  const seeded = readPersistedProviderModels(PROVIDER_ID, { requireBaseUrl: false });
+  pi.registerProvider(PROVIDER_ID, {
     name: "ai&",
     baseUrl: AMPERSAND_BASE_URL,
     apiKey: "$AMPERSAND_API_KEY",
     api: "openai-completions",
     authHeader: true,
-    models: FALLBACK_MODELS,
+    models: seeded.length ? seeded : FALLBACK_MODELS,
     refreshModels,
   });
 
@@ -18,7 +27,7 @@ export default function ampersandProvider(pi: ExtensionAPI): void {
     description: "Show your ai& credit balance and request allowance",
     handler: async (_args, ctx) => {
       try {
-        const model = ctx.modelRegistry.getModelsOfType("chat", "ampersand")[0] ?? ctx.model;
+        const model = ctx.modelRegistry.getModelsOfType("chat", PROVIDER_ID)[0] ?? ctx.model;
         if (!model) throw new Error("No ai& model is available; install the ampersand provider models first");
         const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
         if (!auth.ok || !auth.apiKey) {
@@ -37,5 +46,7 @@ export { AMPERSAND_BASE_URL, FALLBACK_MODELS, AMPERSAND_COMPAT } from "./constan
 export { fetchModels, parseModelsResponse, refreshModels, fetchWithRetry, retryDelayMs, isTransientNetworkError } from "./models.ts";
 export { fetchBalance, parseBalance, formatBalance, AMPERSAND_BALANCE_URL } from "./balance.ts";
 export type { AmpersandBalance } from "./balance.ts";
+export { readPersistedProviderModels } from "./store.ts";
+export type { ReadPersistedModelsOptions } from "./store.ts";
 export { thinkingLevelMapFor, isAmpersandEffort, isChatModelId, canonicalModelId } from "./utils.ts";
 export type { AmpersandEffort } from "./types.ts";
