@@ -46,7 +46,7 @@ export { AMPERSAND_BASE_URL, FALLBACK_MODELS, AMPERSAND_COMPAT } from "./constan
 export { fetchModels, parseModelsResponse, refreshModels, fetchWithRetry, retryDelayMs, isTransientNetworkError } from "./models.ts";
 export { fetchBalance, parseBalance, formatBalance, AMPERSAND_BALANCE_URL } from "./balance.ts";
 export type { AmpersandBalance } from "./balance.ts";
-export { readPersistedProviderModels } from "./store.ts";
+export { readPersistedProviderModels, usablePersistedModels } from "./store.ts";
 export type { ReadPersistedModelsOptions } from "./store.ts";
 export { thinkingLevelMapFor, isAmpersandEffort, isChatModelId, canonicalModelId } from "./utils.ts";
 export type { AmpersandEffort } from "./types.ts";

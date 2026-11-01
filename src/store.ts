@@ -16,9 +16,9 @@ import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
 export interface ReadPersistedModelsOptions {
   /**
-   * Drop rows without a string `baseUrl`. Required only for providers that
-   * register no provider-level `baseUrl`: pi throws during `registerProvider`
-   * for such rows, which fails the whole extension load.
+   * Also drop rows without their own string `baseUrl`. Required only for
+   * providers that register no provider-level `baseUrl`: pi throws during
+   * `registerProvider` for such rows, which fails the whole extension load.
    */
   readonly requireBaseUrl: boolean;
 }
@@ -28,10 +28,37 @@ type ChatModelConfig = Extract<ProviderModelConfig, { type?: "chat" }>;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** `undefined`/`null` defer to the provider-level value; anything else must be a usable string. */
+const absentOrNonEmptyString = (value: unknown): boolean =>
+  value === undefined || value === null || (typeof value === "string" && value.trim().length > 0);
+
+/**
+ * The persisted rows that are safe to hand to pi. pi validates extension
+ * models inside `registerProvider` (and again when a refresh publishes), and a
+ * row whose own `api` or `baseUrl` is set but empty throws there, failing the
+ * whole extension load; a non-string one would silently replace the provider's
+ * value and break requests to that model. Such rows are dropped, as are
+ * non-objects, rows without a non-empty string `id`, and non-chat rows.
+ */
+export function usablePersistedModels(
+  models: unknown,
+  options: ReadPersistedModelsOptions,
+): ChatModelConfig[] {
+  if (!Array.isArray(models)) return [];
+  return models.filter((model): model is ChatModelConfig =>
+    isRecord(model)
+    && typeof model.id === "string"
+    && model.id.trim().length > 0
+    && (model.type === undefined || model.type === "chat")
+    && absentOrNonEmptyString(model.api)
+    && absentOrNonEmptyString(model.baseUrl)
+    && (!options.requireBaseUrl || typeof model.baseUrl === "string"));
+}
+
 /**
  * The chat catalog pi persisted for `providerId`, or `[]` when there is
  * nothing usable (no store, unreadable or malformed store, no entry, or no
- * model list). Never throws: this runs inside the extension factory.
+ * usable rows). Never throws: this runs inside the extension factory.
  */
 export function readPersistedProviderModels(
   providerId: string,
@@ -42,13 +69,8 @@ export function readPersistedProviderModels(
     const store: unknown = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
     if (!isRecord(store)) return [];
     const entry = store[providerId];
-    if (!isRecord(entry) || !Array.isArray(entry.models)) return [];
-    return entry.models.filter((model): model is ChatModelConfig =>
-      isRecord(model)
-      && typeof model.id === "string"
-      && model.id.trim().length > 0
-      && (model.type === undefined || model.type === "chat")
-      && (!options.requireBaseUrl || typeof model.baseUrl === "string"));
+    if (!isRecord(entry)) return [];
+    return usablePersistedModels(entry.models, options);
   } catch {
     return [];
   }

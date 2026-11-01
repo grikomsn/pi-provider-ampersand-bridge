@@ -104,3 +104,54 @@ test("pi's model runtime resolves a seeded live-only model synchronously after r
     assert.equal(runtime.getModel("ampersand", liveOnly.id)?.id, liveOnly.id);
   });
 });
+
+test("corrupt persisted rows never make pi's registration or refresh throw", async () => {
+  const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+  const corrupt = [
+    { ...liveOnly, id: "bad/api-empty", api: "" },
+    { ...liveOnly, id: "bad/base-empty", baseUrl: "" },
+    { ...liveOnly, id: "bad/base-number", baseUrl: 7 },
+    { ...liveOnly, id: "bad/api-number", api: 7 },
+  ];
+  await withAgentDir({ ampersand: { models: [...corrupt, liveOnly], checkedAt: 1 } }, async () => {
+    const dir = process.env.PI_CODING_AGENT_DIR!;
+    const runtime = await ModelRuntime.create({
+      authPath: join(dir, "auth.json"),
+      modelsPath: join(dir, "models.json"),
+      refreshOnCreate: false,
+    });
+    // ModelRuntime.registerProvider runs pi's validateExtensionProvider first.
+    assert.doesNotThrow(() => ampersandProvider({
+      registerProvider: (name: string, config: ProviderConfig) => runtime.registerProvider(name, config),
+      registerCommand() {},
+    } as unknown as ExtensionAPI));
+    const models = runtime.getModels().filter((model) => model.provider === "ampersand");
+    assert.deepEqual(models.map((model) => model.id), [liveOnly.id]);
+    assert.ok(models.every((model) => model.baseUrl === AMPERSAND_BASE_URL && model.api === "openai-completions"));
+    // The registration's cache-only refresh must publish cleanly too.
+    const result = await runtime.refresh({ allowNetwork: false });
+    assert.equal(result.errors.get("ampersand"), undefined);
+    assert.deepEqual(
+      runtime.getModels().filter((model) => model.provider === "ampersand").map((model) => model.id),
+      [liveOnly.id],
+    );
+  });
+});
+
+test("the unfiltered corrupt rows really do break pi's registration (guards the guard)", async () => {
+  const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+  await withAgentDir(undefined, async () => {
+    const dir = process.env.PI_CODING_AGENT_DIR!;
+    const runtime = await ModelRuntime.create({
+      authPath: join(dir, "auth.json"),
+      modelsPath: join(dir, "models.json"),
+      refreshOnCreate: false,
+    });
+    const register = (row: Record<string, unknown>) => runtime.registerProvider("ampersand", {
+      name: "ai&", baseUrl: AMPERSAND_BASE_URL, apiKey: "$AMPERSAND_API_KEY", api: "openai-completions",
+      models: [{ ...liveOnly, ...row }] as never,
+    });
+    assert.throws(() => register({ api: "" }), /api/);
+    assert.throws(() => register({ baseUrl: "" }), /baseUrl/);
+  });
+});

@@ -1,5 +1,6 @@
 import type { ProviderConfig, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { AMPERSAND_BASE_URL, AMPERSAND_COMPAT, FALLBACK_DEFAULT_EFFORTS, FALLBACK_MODELS } from "./constants.ts";
+import { usablePersistedModels } from "./store.ts";
 import type { AmpersandApiModel, AmpersandModelsResponse } from "./types.ts";
 import {
   canonicalModelId,
@@ -239,8 +240,10 @@ export async function fetchModels(apiKey: string, signal?: AbortSignal): Promise
 }
 
 export const refreshModels: NonNullable<ProviderConfig["refreshModels"]> = async (context) => {
-  const persisted = context.stored?.models;
-  const cached = persisted?.length ? [...persisted] as ChatModelConfig[] : FALLBACK_MODELS;
+  // The same filter as the registration seed: one corrupt persisted row must
+  // not make every refresh publish a list pi rejects.
+  const persisted = usablePersistedModels(context.stored?.models, { requireBaseUrl: false });
+  const cached = persisted.length ? persisted : FALLBACK_MODELS;
   const apiKey = context.credential?.type === "api_key" ? context.credential.key : undefined;
   if (!context.allowNetwork || context.signal?.aborted || !apiKey) return cached;
 
