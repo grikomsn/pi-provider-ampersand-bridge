@@ -186,6 +186,20 @@ test("refresh publishes every discovered model and keeps the persisted catalog",
   }
 });
 
+test("refresh serves only usable persisted rows on the cache-only pass", async () => {
+  const good = { id: "vendor/good", name: "Good" };
+  const refresh = (models: unknown[]) => refreshModels({
+    allowNetwork: false,
+    signal: new AbortController().signal,
+    stored: { models },
+    async publish() { return true; },
+  } as never);
+  const served = await refresh([good, { id: "vendor/api-empty", api: "" }, { id: "vendor/base-empty", baseUrl: "" }, { id: "vendor/base-number", baseUrl: 7 }, "junk"]);
+  assert.deepEqual(served.map((model) => model.id), ["vendor/good"]);
+  // Nothing usable left: the bundled fallback, never an empty or corrupt list.
+  assert.equal(await refresh([{ id: "vendor/api-empty", api: "" }]), FALLBACK_MODELS);
+});
+
 test("refresh falls back when no resolved credential is available", async () => {
   const fallback = await refreshModels({
     allowNetwork: true,

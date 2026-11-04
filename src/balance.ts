@@ -40,6 +40,8 @@ export async function fetchBalance(apiKey: string, signal?: AbortSignal): Promis
         Accept: "application/json, application/problem+json",
         Authorization: `Bearer ${apiKey}`,
       },
+      // Never follow a redirect with the bearer key attached.
+      redirect: "error",
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     },
     signal,

@@ -42,7 +42,7 @@ pi
 
 You can instead store an API-key credential for the `ampersand` provider in Pi's `auth.json`, or override the provider in `models.json`.
 
-Select a model with `/model`. Refresh the remote catalog with Pi's normal model refresh flow (`pi update --models`). If discovery is temporarily unavailable, the extension retains the last successful catalog, or the bundled fallback on first use. As with every authenticated Pi provider, models become selectable after a key is configured.
+Select a model with `/model`. Refresh the remote catalog with Pi's normal model refresh flow (`pi update --models`). If discovery is temporarily unavailable, the extension retains the last successful catalog, or the bundled fallback on first use. The provider registers the catalog Pi last persisted (`models-store.json` in the agent directory), so a saved `defaultModel` that only the live catalog lists resolves from the first moment the provider exists. As with every authenticated Pi provider, models become selectable after a key is configured.
 
 ## Thinking effort
 
@@ -88,7 +88,7 @@ The live discovery pipeline mirrors the companion VS Code bridge so both project
 - **Default reasoning effort**: the catalog's `reasoning_effort_default` (or the bundled per-model default) steers Pi's default `medium` thinking level whenever a model does not accept `medium` natively, so a fresh session lands on the effort ai& nominates.
 - **Chat models only**: listings for embedders, rerankers, and image/audio/video models are filtered out, and model ids are canonicalized (trimmed, lowercased) before matching the bundled catalog.
 - **Field aliases**: `context_length` / `max_context_tokens` / `max_model_len` are accepted alongside `context_window`, `max_completion_tokens` alongside `max_output_tokens`, and pricing is read from a nested `pricing` object (`prompt` / `completion` / `cache_prompt`) or the flat per-million strings. Image input falls back to `architecture.input_modalities` and `vision`-style names when no modality data is present.
-- **Transient-failure retry**: `/models` and `/billing/balance` requests retry 429/502/503/504 responses and transient network errors up to three attempts with capped exponential backoff, honoring `Retry-After` (≤5s).
+- **Transient-failure retry**: `/models` and `/billing/balance` requests retry 429/502/503/504 responses and transient network errors up to three attempts with capped exponential backoff, honoring `Retry-After` (≤5s). Discarded responses are released before retrying, backoff stops as soon as the request is aborted or times out, and both requests refuse redirects (`redirect: "error"`) so the bearer key is never forwarded; a refused redirect is not retried.
 
 ## Development
 
