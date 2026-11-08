@@ -15,6 +15,23 @@ import {
 
 type ChatModelConfig = Extract<ProviderModelConfig, { type?: "chat" }>;
 
+/**
+ * Hosted models whose support ended 2026-10-27 (DeepSeek V4 Flash → V4.1
+ * Flash, Kimi K2.7 Code → Kimi K3, GLM 5.2 → GLM 5.3 Flash). The service may
+ * keep serving them for lingering accounts, but offering a model that no
+ * longer accepts new work is worse than hiding it. Ported from the sister
+ * bridge's `isRetiredModel`; live listings of retired ids are filtered out.
+ */
+const RETIRED_MODEL_IDS: ReadonlySet<string> = new Set([
+  "deepseek-ai/deepseek-v4-flash",
+  "moonshotai/kimi-k2.7-code",
+  "zai-org/glm-5.2",
+]);
+
+export function isRetiredModel(id: string): boolean {
+  return RETIRED_MODEL_IDS.has(canonicalModelId(id));
+}
+
 /** Transient upstream failures worth one more catalog fetch. */
 const TRANSIENT_STATUS_CODES = new Set([429, 502, 503, 504]);
 
@@ -156,6 +173,9 @@ export function parseModelsResponse(payload: AmpersandModelsResponse): ChatModel
     // Embedders, rerankers, and other non-chat listings are not selectable.
     if (!isChatModelId(item.id)) return [];
     const id = canonicalModelId(item.id);
+    // Retired ids may still appear in lingering-account catalogs; they stop
+    // new work, so they are hidden from the picker even when served live.
+    if (isRetiredModel(id)) return [];
 
     const fallback = known.get(id);
     const capabilities = strings(item.capabilities);

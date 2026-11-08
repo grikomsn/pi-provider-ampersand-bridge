@@ -35,7 +35,16 @@ const LIVE_FIXTURE = {
 
 test("fallback metadata matches the current ai& catalog", () => {
   const models = new Map(FALLBACK_MODELS.map((model) => [model.id, model]));
+  // Live catalog 2026-11-09: retired ids (DeepSeek V4 Flash, Kimi K2.7 Code,
+  // GLM 5.2) are gone; kimi-k3.1-pro, muse-spark-open, and the 1017 flash
+  // snapshot are bundled. The retired ids remain filtered from live listings.
   assert.equal(models.size, 13);
+  assert.ok(!models.has("deepseek-ai/deepseek-v4-flash"));
+  assert.ok(!models.has("moonshotai/kimi-k2.7-code"));
+  assert.ok(!models.has("zai-org/glm-5.2"));
+  assert.ok(models.has("moonshotai/kimi-k3.1-pro"));
+  assert.ok(models.has("meta/muse-spark-open"));
+  assert.ok(models.has("deepseek-ai/deepseek-v4.1-flash-1017"));
 
   const flash = models.get("deepseek-ai/deepseek-v4.1-flash");
   assert.equal(flash?.contextWindow, 1_048_576);
@@ -52,9 +61,14 @@ test("fallback metadata matches the current ai& catalog", () => {
     off: null, minimal: null, low: "low", medium: "max", high: "high", xhigh: null, max: "max",
   });
 
-  // Kimi K2.7 Code only accepts "high": max falls back to the highest effort.
-  assert.deepEqual(models.get("moonshotai/kimi-k2.7-code")?.thinkingLevelMap, {
-    off: null, minimal: null, low: null, medium: "high", high: "high", xhigh: null, max: "high",
+  // Kimi K3.1 Pro defaults to "high" per the ai& catalog nomination.
+  assert.deepEqual(models.get("moonshotai/kimi-k3.1-pro")?.thinkingLevelMap, {
+    off: null, minimal: null, low: "low", medium: "high", high: "high", xhigh: null, max: "max",
+  });
+  // Muse Spark Open caps at xhigh; max clamps to it. It accepts "medium"
+  // natively, so that slot maps directly.
+  assert.deepEqual(models.get("meta/muse-spark-open")?.thinkingLevelMap, {
+    off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "xhigh",
   });
 
   const compat = models.get("zai-org/glm-5.3")?.compat as Record<string, unknown>;
@@ -62,6 +76,17 @@ test("fallback metadata matches the current ai& catalog", () => {
   assert.equal(compat?.maxTokensField, "max_completion_tokens");
   assert.equal(compat?.supportsDeveloperRole, false);
   assert.equal(compat?.supportsUsageInStreaming, true);
+});
+
+test("retired model ids are filtered from live listings", () => {
+  const retired = parseModelsResponse({
+    data: [
+      { id: "zai-org/glm-5.2", name: "GLM 5.2", reasoning_efforts: ["low", "high", "max"], reasoning_effort_default: "max" },
+      { id: "moonshotai/kimi-k2.7-code", name: "Kimi K2.7 Code", reasoning_efforts: ["high"], reasoning_effort_default: "high" },
+      { id: "zai-org/glm-5.3", name: "GLM 5.3", reasoning_efforts: ["low", "high", "max"], reasoning_effort_default: "max" },
+    ],
+  });
+  assert.deepEqual(retired.map((m) => m.id), ["zai-org/glm-5.3"]);
 });
 
 test("fallback base URL points at the ai& gateway", () => {
