@@ -43,7 +43,7 @@ export default function ampersandProvider(pi: ExtensionAPI): void {
 }
 
 export { AMPERSAND_BASE_URL, FALLBACK_MODELS, AMPERSAND_COMPAT } from "./constants.ts";
-export { fetchModels, parseModelsResponse, refreshModels, fetchWithRetry, retryDelayMs, isTransientNetworkError } from "./models.ts";
+export { fetchModels, parseModelsResponse, refreshModels, fetchWithRetry, retryDelayMs, isTransientNetworkError, isRetiredModel } from "./models.ts";
 export { fetchBalance, parseBalance, formatBalance, AMPERSAND_BALANCE_URL } from "./balance.ts";
 export type { AmpersandBalance } from "./balance.ts";
 export { readPersistedProviderModels, usablePersistedModels } from "./store.ts";

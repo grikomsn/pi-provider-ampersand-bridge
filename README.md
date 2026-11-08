@@ -48,10 +48,11 @@ Select a model with `/model`. Refresh the remote catalog with Pi's normal model 
 
 Use Pi's thinking-level control as usual. Each model advertises its own accepted efforts from the live catalog, and Pi never sends a level the model refuses:
 
-- `deepseek-ai/*`, `zai-org/glm-5.2`, `google/gemma-4-31b-it`, `motif-technologies/motif-3`, `qwen/qwen3.6-27b` expose `off`, `high`, and (where listed) `max`
-- `zai-org/glm-5.3*` and `moonshotai/kimi-k3` are always-on reasoners with `low`, `high`, and `max`
-- `qwen/qwen3.8-27b` runs up to `xhigh`; `openai/gpt-oss-120b` caps at `high`
-- `moonshotai/kimi-k2.7-code` always reasons at `high`
+- `deepseek-ai/*`, `google/gemma-4-31b-it`, `motif-technologies/motif-3`, `qwen/qwen3.6-27b` expose `off`, `high`, and (where listed) `max`
+- `zai-org/glm-5.3*` and `moonshotai/kimi-k3*` are always-on reasoners with `low`, `high`, and `max`
+- `qwen/qwen3.8-27b` and `meta/muse-spark-open` run up to `xhigh`; `openai/gpt-oss-120b` runs `low` to `high`
+
+DeepSeek V4 Flash, Kimi K2.7 Code, and GLM 5.2 reached end of support on 2026-10-27 and are filtered from live listings (their replacements are DeepSeek V4.1 Flash, Kimi K3, and GLM 5.3 Flash).
 
 Models that do not accept `medium` natively map Pi's default `medium` level to the catalog's `reasoning_effort_default` (for example Kimi K3 defaults to `max`, Gemma 4 to `none`), so a fresh session starts at the effort ai& nominates.
 
@@ -62,15 +63,15 @@ The fallback catalog mirrors the live `GET /v1/models` response (USD per million
 | Model | Context | Max output | Input | Reasoning efforts |
 | --- | ---: | ---: | --- | --- |
 | `deepseek-ai/deepseek-v4.1-flash` | 1,048,576 | 384,000 | text, image | none, high, max |
+| `deepseek-ai/deepseek-v4.1-flash-1017` | 1,048,576 | 384,000 | text, image | none, high, max |
 | `zai-org/glm-5.3` | 1,048,576 | 131,072 | text | low, high, max |
 | `zai-org/glm-5.3-flash` | 1,048,550 | 131,072 | text, image | low, high, max |
 | `qwen/qwen3.8-27b` | 262,144 | 32,768 | text, image | none, low, medium, xhigh |
 | `moonshotai/kimi-k3` | 1,048,576 | 131,072 | text, image | low, high, max |
-| `zai-org/glm-5.2` | 1,048,576 | 131,072 | text | none, high, max |
+| `moonshotai/kimi-k3.1-pro` | 1,048,576 | 131,072 | text, image | low, high, max |
+| `meta/muse-spark-open` | 1,048,576 | 943,718 | text, image | low, medium, high, xhigh |
 | `google/gemma-4-31b-it` | 262,144 | 32,768 | text, image | none, high |
-| `moonshotai/kimi-k2.7-code` | 262,144 | 262,144 | text, image | high |
 | `motif-technologies/motif-3` | 262,144 | 262,144 | text | none, high |
-| `deepseek-ai/deepseek-v4-flash` | 1,048,576 | 384,000 | text | none, high, max |
 | `qwen/qwen3.6-27b` | 262,144 | 65,536 | text, image | none, high |
 | `deepseek-ai/deepseek-v4-pro` | 1,048,576 | 384,000 | text | none, high, max |
 | `openai/gpt-oss-120b` | 131,072 | 32,768 | text | low, medium, high |
